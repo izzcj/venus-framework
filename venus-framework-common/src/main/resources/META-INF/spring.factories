@@ -1,0 +1,3 @@
+org.springframework.boot.env.EnvironmentPostProcessor=com.ale.venus.common.config.ConventionalConfigEnvironmentPostProcessor
+com.ale.venus.common.config.ConventionalConfigProvider=com.ale.venus.common.config.VenusCommonConventionalConfigProvider
+org.springframework.context.ApplicationContextInitializer=com.ale.venus.common.utils.init.ClassUtilsInitializer

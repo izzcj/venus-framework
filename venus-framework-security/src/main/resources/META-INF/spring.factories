@@ -1,0 +1,1 @@
+com.ale.venus.common.config.ConventionalConfigProvider=com.ale.venus.security.config.VenusSecurityConventionalConfigProvider

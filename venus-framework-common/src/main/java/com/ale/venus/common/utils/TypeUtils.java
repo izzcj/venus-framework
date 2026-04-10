@@ -1,0 +1,744 @@
+package com.ale.venus.common.utils;
+
+import com.ale.venus.common.constants.StringConstants;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+import java.io.Serial;
+import java.io.Serializable;
+import java.lang.reflect.*;
+import java.util.*;
+
+/**
+ * 类型工具类
+ *
+ * @author Ale
+ * @version 1.0.0
+ */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class TypeUtils {
+
+    /**
+     * Empty type array
+     */
+    static final Type[] EMPTY_TYPE_ARRAY = new Type[] {};
+
+    /**
+     * Check if the given object is not null
+     *
+     * @param obj the object
+     */
+    public static void checkNotNull(Object obj) {
+        if (obj == null) {
+            throw new NullPointerException();
+        }
+    }
+
+    /**
+     * Check the condition, exception will be thrown if the condition is false
+     *
+     * @param condition the condition
+     */
+    public static void checkArgument(boolean condition) {
+        if (!condition) {
+            throw new IllegalArgumentException();
+        }
+    }
+
+    /**
+     * Returns a new parameterized type, applying {@code typeArguments} to
+     * {@code rawType} and enclosed by {@code ownerType}.
+     *
+     * @param ownerType the owner type
+     * @param rawType the raw type
+     * @param typeArguments the type arguments
+     * @return a {@link Serializable serializable} parameterized type.
+     */
+    public static ParameterizedType newParameterizedTypeWithOwner(Type ownerType, Type rawType, Type... typeArguments) {
+        return new ParameterizedTypeImpl(ownerType, rawType, typeArguments);
+    }
+
+    /**
+     * Returns an array type whose elements are all instances of
+     * {@code componentType}.
+     *
+     * @param componentType the component type
+     * @return a {@link Serializable serializable} generic array type.
+     */
+    public static GenericArrayType arrayOf(Type componentType) {
+        return new GenericArrayTypeImpl(componentType);
+    }
+
+    /**
+     * Returns a type that represents an unknown type that extends {@code bound}.
+     * For example, if {@code bound} is {@code CharSequence.class}, this returns
+     * {@code ? extends CharSequence}. If {@code bound} is {@code Object.class},
+     * this returns {@code ?}, which is shorthand for {@code ? extends Object}.
+     *
+     * @param bound the bounded type
+     * @return the wildcard type
+     */
+    public static WildcardType subtypeOf(Type bound) {
+        Type[] upperBounds;
+        if (bound instanceof WildcardType) {
+            upperBounds = ((WildcardType) bound).getUpperBounds();
+        } else {
+            upperBounds = new Type[] {bound};
+        }
+        return new WildcardTypeImpl(upperBounds, EMPTY_TYPE_ARRAY);
+    }
+
+    /**
+     * Returns a type that represents an unknown supertype of {@code bound}. For
+     * example, if {@code bound} is {@code String.class}, this returns {@code ?
+     * super String}.
+     *
+     * @param bound the bounded type
+     * @return the wildcard type
+     */
+    public static WildcardType supertypeOf(Type bound) {
+        Type[] lowerBounds;
+        if (bound instanceof WildcardType) {
+            lowerBounds = ((WildcardType) bound).getLowerBounds();
+        } else {
+            lowerBounds = new Type[] {bound};
+        }
+        return new WildcardTypeImpl(new Type[] {Object.class}, lowerBounds);
+    }
+
+    /**
+     * Returns a type that is functionally equal but not necessarily equal
+     * according to {@link Object#equals(Object) Object.equals()}. The returned
+     * type is {@link Serializable}.
+     *
+     * @param type the type
+     * @return the canonical type
+     */
+    public static Type canonicalize(Type type) {
+        if (type instanceof Class<?> c) {
+            return c.isArray() ? new GenericArrayTypeImpl(canonicalize(c.getComponentType())) : c;
+
+        } else if (type instanceof ParameterizedType p) {
+            return new ParameterizedTypeImpl(p.getOwnerType(),
+                p.getRawType(), p.getActualTypeArguments());
+
+        } else if (type instanceof GenericArrayType g) {
+            return new GenericArrayTypeImpl(g.getGenericComponentType());
+
+        } else if (type instanceof WildcardType w) {
+            return new WildcardTypeImpl(w.getUpperBounds(), w.getLowerBounds());
+
+        } else {
+            // type is either serializable as-is or unsupported
+            return type;
+        }
+    }
+
+    /**
+     * Get raw type of the type
+     *
+     * @param type the type
+     * @return raw type
+     */
+    public static Class<?> getRawType(Type type) {
+        if (type instanceof Class<?>) {
+            // type is a normal class.
+            return (Class<?>) type;
+
+        } else if (type instanceof ParameterizedType parameterizedType) {
+
+            // I'm not exactly sure why getRawType() returns Type instead of Class.
+            // Neal isn't either but suspects some pathological case related
+            // to nested classes exists.
+            Type rawType = parameterizedType.getRawType();
+            checkArgument(rawType instanceof Class);
+            return (Class<?>) rawType;
+
+        } else if (type instanceof GenericArrayType) {
+            Type componentType = ((GenericArrayType) type).getGenericComponentType();
+            return Array.newInstance(getRawType(componentType), 0).getClass();
+
+        } else if (type instanceof TypeVariable) {
+            // we could use the variable's bounds, but that won't work if there are multiple.
+            // having a raw type that's more general than necessary is okay
+            return Object.class;
+
+        } else if (type instanceof WildcardType) {
+            return getRawType(((WildcardType) type).getUpperBounds()[0]);
+
+        } else {
+            String className = type == null ? "null" : type.getClass().getName();
+            throw new IllegalArgumentException("Expected a Class, ParameterizedType, or "
+                + "GenericArrayType, but <" + type + "> is of type " + className);
+        }
+    }
+
+    /**
+     * Check if a is equals b
+     *
+     * @param a the a
+     * @param b the b
+     * @return bool
+     */
+    static boolean equal(Object a, Object b) {
+        return Objects.equals(a, b);
+    }
+
+    /**
+     * Returns true if {@code a} and {@code b} are equal.
+     *
+     * @param a the a
+     * @param b the b
+     * @return bool
+     */
+    public static boolean equals(Type a, Type b) {
+        if (Objects.equals(a, b)) {
+            return true;
+        } else if (a instanceof Class) {
+            return a.equals(b);
+        } else if (a instanceof ParameterizedType pa) {
+            if (!(b instanceof ParameterizedType pb)) {
+                return false;
+            }
+
+            return equal(pa.getOwnerType(), pb.getOwnerType())
+                && pa.getRawType().equals(pb.getRawType())
+                && Arrays.equals(pa.getActualTypeArguments(), pb.getActualTypeArguments());
+
+        } else if (a instanceof GenericArrayType ga) {
+            if (!(b instanceof GenericArrayType gb)) {
+                return false;
+            }
+
+            return equals(ga.getGenericComponentType(), gb.getGenericComponentType());
+
+        } else if (a instanceof WildcardType wa) {
+            if (!(b instanceof WildcardType wb)) {
+                return false;
+            }
+
+            return Arrays.equals(wa.getUpperBounds(), wb.getUpperBounds())
+                && Arrays.equals(wa.getLowerBounds(), wb.getLowerBounds());
+
+        } else if (a instanceof TypeVariable<?> va) {
+            if (!(b instanceof TypeVariable<?> vb)) {
+                return false;
+            }
+            return va.getGenericDeclaration() == vb.getGenericDeclaration()
+                && va.getName().equals(vb.getName());
+
+        } else {
+            // This isn't a type we support. Could be a generic array type, wildcard type, etc.
+            return false;
+        }
+    }
+
+    /**
+     * Get hash code
+     *
+     * @param o the object
+     * @return the hash code
+     */
+    static int hashCodeOrZero(Object o) {
+        return o != null ? o.hashCode() : 0;
+    }
+
+    /**
+     * Convert a type to a string
+     *
+     * @param type the type
+     * @return string
+     */
+    public static String typeToString(Type type) {
+        return type instanceof Class ? ((Class<?>) type).getName() : type.toString();
+    }
+
+    /**
+     * Returns the generic supertype for {@code supertype}. For example, given a class {@code
+     * IntegerSet}, the result for when supertype is {@code Set.class} is {@code Set<Integer>} and the
+     * result when the supertype is {@code Collection.class} is {@code Collection<Integer>}.
+     *
+     * @param context the context
+     * @param rawType the raw type
+     * @param toResolve the class to resolve
+     * @return the type
+     */
+    static Type getGenericSupertype(Type context, Class<?> rawType, Class<?> toResolve) {
+        if (toResolve == rawType) {
+            return context;
+        }
+
+        // we skip searching through interfaces if unknown is an interface
+        if (toResolve.isInterface()) {
+            Class<?>[] interfaces = rawType.getInterfaces();
+            for (int i = 0, length = interfaces.length; i < length; i++) {
+                if (interfaces[i] == toResolve) {
+                    return rawType.getGenericInterfaces()[i];
+                } else if (toResolve.isAssignableFrom(interfaces[i])) {
+                    return getGenericSupertype(rawType.getGenericInterfaces()[i], interfaces[i], toResolve);
+                }
+            }
+        }
+
+        // check our supertypes
+        if (!rawType.isInterface()) {
+            while (rawType != Object.class) {
+                Class<?> rawSupertype = rawType.getSuperclass();
+                if (rawSupertype == toResolve) {
+                    return rawType.getGenericSuperclass();
+                } else if (toResolve.isAssignableFrom(rawSupertype)) {
+                    return getGenericSupertype(rawType.getGenericSuperclass(), rawSupertype, toResolve);
+                }
+                rawType = rawSupertype;
+            }
+        }
+
+        // we can't resolve this further
+        return toResolve;
+    }
+
+    /**
+     * Returns the generic form of {@code supertype}. For example, if this is {@code
+     * ArrayList<String>}, this returns {@code Iterable<String>} given the input {@code
+     * Iterable.class}.
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @param supertype a superclass of, or interface implemented by, this.
+     * @return the type
+     */
+    static Type getSupertype(Type context, Class<?> contextRawType, Class<?> supertype) {
+        if (context instanceof WildcardType) {
+            // wildcards are useless for resolving supertypes. As the upper bound has the same raw type, use it instead
+            context = ((WildcardType) context).getUpperBounds()[0];
+        }
+        checkArgument(supertype.isAssignableFrom(contextRawType));
+        return resolve(context, contextRawType,
+            TypeUtils.getGenericSupertype(context, contextRawType, supertype));
+    }
+
+    /**
+     * Returns the component type of this array type.
+     *
+     * @param array the array type
+     * @return the type
+     * @throws ClassCastException if this type is not an array.
+     */
+    public static Type getArrayComponentType(Type array) {
+        return array instanceof GenericArrayType
+            ? ((GenericArrayType) array).getGenericComponentType()
+            : ((Class<?>) array).getComponentType();
+    }
+
+    /**
+     * Returns the element type of this collection type.
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @return the type
+     * @throws IllegalArgumentException if this type is not a collection.
+     */
+    public static Type getCollectionElementType(Type context, Class<?> contextRawType) {
+        Type collectionType = getSupertype(context, contextRawType, Collection.class);
+
+        if (collectionType instanceof WildcardType) {
+            collectionType = ((WildcardType) collectionType).getUpperBounds()[0];
+        }
+        if (collectionType instanceof ParameterizedType) {
+            return ((ParameterizedType) collectionType).getActualTypeArguments()[0];
+        }
+        return Object.class;
+    }
+
+    /**
+     * Returns a two element array containing this map's key and value types in
+     * positions 0 and 1 respectively.
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @return the type array
+     */
+    public static Type[] getMapKeyAndValueTypes(Type context, Class<?> contextRawType) {
+        /*
+         * Work around a problem with the declaration of java.util.Properties. That
+         * class should extend Hashtable<String, String>, but it's declared to
+         * extend Hashtable<Object, Object>.
+         */
+        if (context == Properties.class) {
+            return new Type[] {String.class, String.class};
+        }
+
+        Type mapType = getSupertype(context, contextRawType, Map.class);
+        if (mapType instanceof ParameterizedType mapParameterizedType) {
+            return mapParameterizedType.getActualTypeArguments();
+        }
+        return new Type[] {Object.class, Object.class};
+    }
+
+    /**
+     * Resolve the type
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @param toResolve the class to resolve
+     * @return the type
+     */
+    public static Type resolve(Type context, Class<?> contextRawType, Type toResolve) {
+
+        return resolve(context, contextRawType, toResolve, new HashMap<>());
+    }
+
+    /**
+     * Resolve the type
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @param toResolve the class to resolve
+     * @param visitedTypeVariables the visited type variables
+     * @return the type
+     */
+    private static Type resolve(Type context, Class<?> contextRawType, Type toResolve,
+                                Map<TypeVariable<?>, Type> visitedTypeVariables) {
+        // this implementation is made a little more complicated in an attempt to avoid object-creation
+        TypeVariable<?> resolving = null;
+        while (true) {
+            if (toResolve instanceof TypeVariable<?> typeVariable) {
+                Type previouslyResolved = visitedTypeVariables.get(typeVariable);
+                if (previouslyResolved != null) {
+                    // cannot reduce due to infinite recursion
+                    return (previouslyResolved == Void.TYPE) ? toResolve : previouslyResolved;
+                }
+
+                // Insert a placeholder to mark the fact that we are in the process of resolving this type
+                visitedTypeVariables.put(typeVariable, Void.TYPE);
+                if (resolving == null) {
+                    resolving = typeVariable;
+                }
+
+                toResolve = resolveTypeVariable(context, contextRawType, typeVariable);
+                if (toResolve == typeVariable) {
+                    break;
+                }
+
+            } else if (toResolve instanceof Class<?> original && ((Class<?>) toResolve).isArray()) {
+                Type componentType = original.getComponentType();
+                Type newComponentType = resolve(context, contextRawType, componentType, visitedTypeVariables);
+                toResolve = equal(componentType, newComponentType)
+                    ? original
+                    : arrayOf(newComponentType);
+                break;
+
+            } else if (toResolve instanceof GenericArrayType original) {
+                Type componentType = original.getGenericComponentType();
+                Type newComponentType = resolve(context, contextRawType, componentType, visitedTypeVariables);
+                toResolve = equal(componentType, newComponentType)
+                    ? original
+                    : arrayOf(newComponentType);
+                break;
+
+            } else if (toResolve instanceof ParameterizedType original) {
+                Type ownerType = original.getOwnerType();
+                Type newOwnerType = resolve(context, contextRawType, ownerType, visitedTypeVariables);
+                boolean changed = !equal(newOwnerType, ownerType);
+
+                Type[] args = original.getActualTypeArguments();
+                for (int t = 0, length = args.length; t < length; t++) {
+                    Type resolvedTypeArgument = resolve(context, contextRawType, args[t], visitedTypeVariables);
+                    if (!equal(resolvedTypeArgument, args[t])) {
+                        if (!changed) {
+                            args = args.clone();
+                            changed = true;
+                        }
+                        args[t] = resolvedTypeArgument;
+                    }
+                }
+
+                toResolve = changed
+                    ? newParameterizedTypeWithOwner(newOwnerType, original.getRawType(), args)
+                    : original;
+                break;
+
+            } else if (toResolve instanceof WildcardType original) {
+                Type[] originalLowerBound = original.getLowerBounds();
+                Type[] originalUpperBound = original.getUpperBounds();
+
+                if (originalLowerBound.length == 1) {
+                    Type lowerBound = resolve(context, contextRawType, originalLowerBound[0], visitedTypeVariables);
+                    if (!Objects.equals(lowerBound, originalLowerBound[0])) {
+                        toResolve = supertypeOf(lowerBound);
+                        break;
+                    }
+                } else if (originalUpperBound.length == 1) {
+                    Type upperBound = resolve(context, contextRawType, originalUpperBound[0], visitedTypeVariables);
+                    if (!Objects.equals(upperBound, originalUpperBound[0])) {
+                        toResolve = subtypeOf(upperBound);
+                        break;
+                    }
+                }
+                break;
+
+            } else {
+                break;
+            }
+        }
+        // ensure that any in-process resolution gets updated with the final result
+        if (resolving != null) {
+            visitedTypeVariables.put(resolving, toResolve);
+        }
+        return toResolve;
+    }
+
+    /**
+     * Resolve the type
+     *
+     * @param context the context
+     * @param contextRawType the context raw type
+     * @param unknown the unknown type variable
+     * @return the type
+     */
+    static Type resolveTypeVariable(Type context, Class<?> contextRawType, TypeVariable<?> unknown) {
+        Class<?> declaredByRaw = declaringClassOf(unknown);
+
+        // we can't reduce this further
+        if (declaredByRaw == null) {
+            return unknown;
+        }
+
+        Type declaredBy = getGenericSupertype(context, contextRawType, declaredByRaw);
+        if (declaredBy instanceof ParameterizedType) {
+            int index = indexOf(declaredByRaw.getTypeParameters(), unknown);
+            return ((ParameterizedType) declaredBy).getActualTypeArguments()[index];
+        }
+
+        return unknown;
+    }
+
+    /**
+     * indexOf
+     *
+     * @param array the array
+     * @param toFind the object to find
+     * @return the index
+     */
+    private static int indexOf(Object[] array, Object toFind) {
+        for (int i = 0, length = array.length; i < length; i++) {
+            if (toFind.equals(array[i])) {
+                return i;
+            }
+        }
+        throw new NoSuchElementException();
+    }
+
+    /**
+     * Returns the declaring class of {@code typeVariable}, or {@code null} if it was not declared by
+     * a class.
+     *
+     * @param typeVariable the type variable
+     * @return the class
+     */
+    private static Class<?> declaringClassOf(TypeVariable<?> typeVariable) {
+        GenericDeclaration genericDeclaration = typeVariable.getGenericDeclaration();
+        return genericDeclaration instanceof Class
+            ? (Class<?>) genericDeclaration
+            : null;
+    }
+
+    /**
+     * Check if the type is not primitive
+     *
+     * @param type the type
+     */
+    static void checkNotPrimitive(Type type) {
+        checkArgument(!(type instanceof Class<?>) || !((Class<?>) type).isPrimitive());
+    }
+
+    /**
+     * ParameterizedTypeImpl
+     */
+    private static final class ParameterizedTypeImpl implements ParameterizedType, Serializable {
+        /**
+         * owner type
+         */
+        private final Type ownerType;
+        /**
+         * raw type
+         */
+        private final Type rawType;
+        /**
+         * type arguments
+         */
+        private final Type[] typeArguments;
+
+        ParameterizedTypeImpl(Type ownerType, Type rawType, Type... typeArguments) {
+            // require an owner type if the raw type needs it
+            if (rawType instanceof Class<?> rawTypeAsClass) {
+                boolean isStaticOrTopLevelClass = Modifier.isStatic(rawTypeAsClass.getModifiers())
+                    || rawTypeAsClass.getEnclosingClass() == null;
+                checkArgument(ownerType != null || isStaticOrTopLevelClass);
+            }
+
+            this.ownerType = ownerType == null ? null : canonicalize(ownerType);
+            this.rawType = canonicalize(rawType);
+            this.typeArguments = typeArguments.clone();
+            for (int t = 0, length = this.typeArguments.length; t < length; t++) {
+                checkNotNull(this.typeArguments[t]);
+                checkNotPrimitive(this.typeArguments[t]);
+                this.typeArguments[t] = canonicalize(this.typeArguments[t]);
+            }
+        }
+
+        @Override
+        public Type[] getActualTypeArguments() {
+            return this.typeArguments.clone();
+        }
+
+        @Override
+        public Type getRawType() {
+            return this.rawType;
+        }
+
+        @Override
+        public Type getOwnerType() {
+            return this.ownerType;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ParameterizedType
+                && TypeUtils.equals(this, (ParameterizedType) other);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(this.typeArguments)
+                ^ this.rawType.hashCode()
+                ^ hashCodeOrZero(this.ownerType);
+        }
+
+        @Override
+        public String toString() {
+            int length = this.typeArguments.length;
+            if (length == 0) {
+                return typeToString(this.rawType);
+            }
+
+            StringBuilder stringBuilder = new StringBuilder(30 * (length + 1));
+            stringBuilder.append(typeToString(this.rawType)).append(StringConstants.LEFT_CHEV).append(typeToString(this.typeArguments[0]));
+            for (int i = 1; i < length; i++) {
+                stringBuilder.append(StringConstants.COMMA_WITH_SPACE).append(typeToString(this.typeArguments[i]));
+            }
+            return stringBuilder.append(StringConstants.RIGHT_CHEV).toString();
+        }
+
+        @Serial
+        private static final long serialVersionUID = 0;
+    }
+
+    private static final class GenericArrayTypeImpl implements GenericArrayType, Serializable {
+        /**
+         * component type
+         */
+        private final Type componentType;
+
+        GenericArrayTypeImpl(Type componentType) {
+            this.componentType = canonicalize(componentType);
+        }
+
+        @Override
+        public Type getGenericComponentType() {
+            return this.componentType;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof GenericArrayType
+                && TypeUtils.equals(this, (GenericArrayType) o);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.componentType.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return typeToString(this.componentType) + "[]";
+        }
+
+        @Serial
+        private static final long serialVersionUID = 0;
+    }
+
+    /**
+     * The WildcardType interface supports multiple upper bounds and multiple
+     * lower bounds. We only support what the target Java version supports - at most one
+     * bound, see also https://bugs.openjdk.java.net/browse/JDK-8250660. If a lower bound
+     * is set, the upper bound must be Object.class.
+     */
+    private static final class WildcardTypeImpl implements WildcardType, Serializable {
+        /**
+         * upper bound
+         */
+        private final Type upperBound;
+        /**
+         * lower bound
+         */
+        private final Type lowerBound;
+
+        WildcardTypeImpl(Type[] upperBounds, Type[] lowerBounds) {
+            checkArgument(lowerBounds.length <= 1);
+            checkArgument(upperBounds.length == 1);
+
+            if (lowerBounds.length == 1) {
+                checkNotNull(lowerBounds[0]);
+                checkNotPrimitive(lowerBounds[0]);
+                checkArgument(upperBounds[0] == Object.class);
+                this.lowerBound = canonicalize(lowerBounds[0]);
+                this.upperBound = Object.class;
+
+            } else {
+                checkNotNull(upperBounds[0]);
+                checkNotPrimitive(upperBounds[0]);
+                this.lowerBound = null;
+                this.upperBound = canonicalize(upperBounds[0]);
+            }
+        }
+
+        @Override
+        public Type[] getUpperBounds() {
+            return new Type[] {this.upperBound};
+        }
+
+        @Override
+        public Type[] getLowerBounds() {
+            return this.lowerBound != null ? new Type[] {this.lowerBound} : EMPTY_TYPE_ARRAY;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof WildcardType
+                && TypeUtils.equals(this, (WildcardType) other);
+        }
+
+        @Override
+        public int hashCode() {
+            // this equals Arrays.hashCode(getLowerBounds()) ^ Arrays.hashCode(getUpperBounds());
+            return (this.lowerBound != null ? 31 + this.lowerBound.hashCode() : 1)
+                ^ (31 + this.upperBound.hashCode());
+        }
+
+        @Override
+        public String toString() {
+            if (this.lowerBound != null) {
+                return "? super " + typeToString(this.lowerBound);
+            } else if (this.upperBound == Object.class) {
+                return "?";
+            } else {
+                return "? extends " + typeToString(this.upperBound);
+            }
+        }
+
+        @Serial
+        private static final long serialVersionUID = 0;
+    }
+}

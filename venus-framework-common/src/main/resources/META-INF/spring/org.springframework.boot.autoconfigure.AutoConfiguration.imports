@@ -1,0 +1,8 @@
+com.ale.venus.common.redis.RedisCommonAutoConfiguration
+com.ale.venus.common.utils.init.UtilsInitializationAutoConfiguration
+com.ale.venus.common.json.JsonCodecExtensionAutoConfiguration
+com.ale.venus.common.exception.config.ExceptionExtensionAutoConfiguration
+com.ale.venus.common.logging.LogExtensionAutoConfiguration
+com.ale.venus.common.porxy.config.VenusProxyAutoConfiguration
+com.ale.venus.common.transaction.VenusTransactionAutoConfiguration
+com.ale.venus.common.spring.SpringCommonAutoConfiguration

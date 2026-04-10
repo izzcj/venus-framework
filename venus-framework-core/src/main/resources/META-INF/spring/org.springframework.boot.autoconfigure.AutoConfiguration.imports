@@ -1,0 +1,13 @@
+com.ale.venus.core.db.DataBaseAutoConfiguration
+com.ale.venus.core.spring.SpringExtensionAutoConfiguration
+com.ale.venus.core.query.QueryAutoConfiguration
+com.ale.venus.core.mybatis.MybatisPlusExtensionAutoConfiguration
+com.ale.venus.core.controller.ControllerExtensionAutoConfiguration
+com.ale.venus.core.share.SharedDataContextAutoConfiguration
+com.ale.venus.core.service.ServiceAutoConfiguration
+com.ale.venus.core.translation.GenericTranslationAutoConfiguration
+com.ale.venus.core.oss.OssAutoConfiguration
+com.ale.venus.core.endpoint.EndpointAutoConfiguration
+com.ale.venus.core.filter.VenusFilterAutoConfiguration
+com.ale.venus.core.enumeration.EnumerationAutoConfiguration
+com.ale.venus.core.im.InstantMessageAutoConfig
