@@ -9,7 +9,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.ale.venus</groupId>
+    <groupId>io.github.izzcj</groupId>
     <artifactId>venus-framework</artifactId>
     <name>venus-framework</name>
     <description>Venus框架</description>

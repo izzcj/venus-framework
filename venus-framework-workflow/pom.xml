@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>com.ale.venus</groupId>
+        <groupId>io.github.izzcj</groupId>
         <artifactId>venus-framework</artifactId>
         <version>1.0.0</version>
     </parent>
@@ -16,7 +16,7 @@
     <dependencies>
         <!-- 核心模块 -->
         <dependency>
-            <groupId>com.ale.venus</groupId>
+            <groupId>io.github.izzcj</groupId>
             <artifactId>venus-framework-core</artifactId>
             <version>1.0.0</version>
         </dependency>
