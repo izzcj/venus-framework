@@ -106,7 +106,7 @@ venus-framework/
 
 ```xml
 <dependency>
-    <groupId>com.ale.venus</groupId>
+    <groupId>io.github.izzcj</groupId>
     <artifactId>venus-framework-starter</artifactId>
     <version>1.0.0</version>
 </dependency>

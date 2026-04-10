@@ -25,7 +25,8 @@ public @interface TranslationField {
     String type();
 
     /**
-     * 翻译参数，格式（key1=value1&key2=value2）
+     * 翻译参数
+     * 示例：key=value
      *
      * @return 翻译参数
      */
