@@ -43,6 +43,12 @@
             <artifactId>venus-framework-workflow</artifactId>
             <version>1.0.0</version>
         </dependency>
+        <!-- AI模块 -->
+        <dependency>
+            <groupId>io.github.izzcj</groupId>
+            <artifactId>venus-framework-ai</artifactId>
+            <version>1.0.0</version>
+        </dependency>
     </dependencies>
 
 </project>
