@@ -41,7 +41,6 @@
     </scm>
 
     <modules>
-        <module>venus-framework-ai</module>
         <module>venus-framework-common</module>
         <module>venus-framework-core</module>
         <module>venus-framework-security</module>
@@ -186,14 +185,6 @@
                 <groupId>com.aliyun.oss</groupId>
                 <artifactId>aliyun-sdk-oss</artifactId>
                 <version>${aliyun-oss.version}</version>
-            </dependency>
-            <!-- spring-ai-bom -->
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-bom</artifactId>
-                <version>${spring-ai-bom.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
